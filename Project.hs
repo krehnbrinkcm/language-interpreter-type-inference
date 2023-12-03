@@ -7,31 +7,39 @@ import Data.Maybe (catMaybes)
 type Vars = String
 type TVars = String
 
--- T ::= / | T -> T | TV
-data Types = Int | Fun Types Types | TVar TVars deriving Show
+data Types = Int | Bool | Unit | Fun Types Types | Prod Types Types | TVar TVars deriving Show
 
--- t ::= x | /\ x | \/ x | / | \ x | if | then | else | Y
-data Terms = Var String | App Terms Terms | Abs Vars Terms
-           | Const Integer | Sub Terms Terms | IfPos Terms Terms Terms | Y
+data Terms = Var String | Var Vars| App Terms Terms | Abs Vars Terms
+           | Const Integer | Add Terms Terms | Leq Terms Terms 
+           | Tru | Fls | IfThenElse | Pair Terms Terms 
+           | Fst Terms | Snd Terms | Y
            deriving (Show,Eq)
 
 data Token = VSym String | CSym Integer 
-           | SubOp | IfPositiveK | ThenK | ElseK | YComb
-           | LPar | RPar | Dot | Backslash
+           | AddOp | LeqOp | TrueK | FalseK | IfPositiveK | ThenK | ElseK
+           | PairK | FstK | SndK | Ycomb
+           | LPar | RPar | Comma | Dot | Backslash | UnitK
            | Err String | PT Terms
            deriving (Eq,Show)
 
 -- Part 1. Parsing and Lexical Analysis
-
+ 
+ --may need to remove some of these
 lexer :: String -> [Token]
-lexer ('-':s) = SubOp : lexer s 
+lexer ('+':s) = AddOp : lexer s 
 lexer ('Y':s) = YComb : lexer s
+-- LeqOp
+-- pair
+-- fst
+-- snd
 lexer s | isPrefixOf "ifPositive" s = IfPositiveK : lexer (drop 10 s)
 lexer s | isPrefixOf "then" s = ThenK : lexer (drop 4 s)
 lexer s | isPrefixOf "else" s = ElseK : lexer (drop 4 s)
 lexer ('(':s) = LPar : lexer s
 lexer (')':s) = RPar : lexer s
 lexer ('.':s) = Dot : lexer s
+lexer (',':s) = Comma : lexer s
+-- unit
 lexer ('\\':s) = Backslash : lexer s 
 lexer s@(c:_) | isDigit c = CSym (read n) : lexer t where (n,t) = span isDigit s
 lexer s@(v:_) | isLower v = VSym n : lexer t where (n,t) = span isAlphaNum s
