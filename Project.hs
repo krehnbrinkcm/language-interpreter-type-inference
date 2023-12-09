@@ -23,9 +23,7 @@ data Token = VSym String | CSym Integer
            | Err String | PT Terms
            deriving (Eq,Show)
 
--- Part 1. Parsing and Lexical Analysis
- 
- --may need to remove some of these
+--Parsing and Lexical Analysis 
 lexer :: String -> [Token]
 lexer ('+':s)                   = AddOp : lexer s 
 lexer ('-':s)                   = SubOp : lexer s

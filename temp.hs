@@ -1,21 +1,29 @@
-
---ALL ELSE HAS NOT BEEN CHECKED
 -- Part 2. Reduction
 
 allVars :: [Vars]
 allVars = ("" : allVars) >>= (\s -> (map (\x -> s ++ [x]) ['a'..'z']))
 
 freshVar :: [Vars] -> Vars
-freshVar vs = allVars !! (maximum (catMaybes (elemIndex x allVars | x <- xs)) + 1)
-    where xs = nub vs
+freshVar xs = allVars !! (maximum (catMaybes [elemIndex x allVars | x <- xs]) + 1)
 
 fv :: Terms -> [Vars]
 fv (Var x) = [x]
 fv (Abs x r) = filter (/= x) (fv r)
-fv (App r s) = nub $ fv s ++ fv r
+fv (App s t) = nub $ fv s ++ fv t
 fv (Sub s t) = nub $ fv s ++ fv t
-fv (IfPos r s t) = nub $ fv r ++ fv s ++ fv t
+fv (IfPos r s t) = nub $ fv r ++ fv s ++ fv t  -- change to if
+-- Add
+-- fpc 
+-- succ
+-- leq
+-- Rec
+-- pair ?
+-- fst ?
+-- snd ?
 fv _ = []
+
+
+--ALL ELSE HAS NOT BEEN CHECKED
 
 -- Question 2.1
 subst :: (Vars,Terms) -> Terms -> Terms
