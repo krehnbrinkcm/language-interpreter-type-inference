@@ -9,15 +9,16 @@ type TVars = String
 
 data Types = Int | Bool | Unit | Fun Types Types | Prod Types Types | TVar TVars deriving Show
 
-data Terms = Var String | Var Vars| App Terms Terms | Abs Vars Terms
-           | Const Integer | Add Terms Terms | Leq Terms Terms 
-           | Tru | Fls | IfThenElse | Pair Terms Terms 
+data Terms = Var Vars| App Terms Terms | Abs Vars Terms
+           | Const Integer | Add Terms Terms | Sub Terms Terms 
+           | Leq Terms Terms | Rec Terms Terms Terms | S Terms
+           | TT | FF | If Terms Terms Terms | Pair Terms Terms 
            | Fst Terms | Snd Terms | Y
            deriving (Show,Eq)
 
 data Token = VSym String | CSym Integer 
-           | AddOp | LeqOp | TrueK | FalseK | IfPositiveK | ThenK | ElseK
-           | PairK | FstK | SndK | Ycomb
+           | SubOp | AddOp | LeqOp | TrueK | FalseK | IfK | ThenK | ElseK
+           | PairK | FstK | SndK | RecK | YComb | ZeroK | SuccK
            | LPar | RPar | Comma | Dot | Backslash | UnitK
            | Err String | PT Terms
            deriving (Eq,Show)
@@ -27,19 +28,23 @@ data Token = VSym String | CSym Integer
  --may need to remove some of these
 lexer :: String -> [Token]
 lexer ('+':s) = AddOp : lexer s 
+lexer ('-':s) = SubOp : lexer s
 lexer ('Y':s) = YComb : lexer s
--- LeqOp
--- pair
--- fst
--- snd
-lexer s | isPrefixOf "ifPositive" s = IfPositiveK : lexer (drop 10 s)
+lexer ('S':s) = SuccK : lexer s
+lexer ('<':'=':s) = LeqOp : lexer s
+lexer s | isPrefixOf "pair" s = PairK : lexer (drop 4 s)
+lexer s | isPrefixOf "fst" s = FstK : lexer (drop 3 s)
+lexer s | isPrefixOf "snd" s = SndK : lexer (drop 3 s)
+lexer s | isPrefixOf "rec" s = RecK : lexer (drop 3 s)
+lexer s | isPrefixOf "if" s = IfK : lexer (drop 2 s)
 lexer s | isPrefixOf "then" s = ThenK : lexer (drop 4 s)
 lexer s | isPrefixOf "else" s = ElseK : lexer (drop 4 s)
-lexer ('(':s) = LPar : lexer s
-lexer (')':s) = RPar : lexer s
-lexer ('.':s) = Dot : lexer s
-lexer (',':s) = Comma : lexer s
--- unit
+lexer ('0':s)   = ZeroK : lexer s
+lexer ('(':s)   = LPar : lexer s
+lexer (')':s)   = RPar : lexer s
+lexer ('.':s)   = Dot : lexer s
+lexer (',':s)   = Comma : lexer s
+lexer ('1':s)     = UnitK : lexer s
 lexer ('\\':s) = Backslash : lexer s 
 lexer s@(c:_) | isDigit c = CSym (read n) : lexer t where (n,t) = span isDigit s
 lexer s@(v:_) | isLower v = VSym n : lexer t where (n,t) = span isAlphaNum s
@@ -55,86 +60,24 @@ parser ts = case sr [] ts of
 
 sr :: [Token] -> [Token] -> [Token]
 sr (CSym n : ts) i = sr (PT (Const n) : ts) i
+sr (ZeroK : ts) i = sr (PT (Const 0) : ts) i
+sr (UnitK : ts) i = sr (PT (Const 1) : ts) i 
 sr (VSym n : ts) i = sr (PT (Var n) : ts) i
-sr (YComb : ts) i = sr (PT Y : ts) i
--- subop line
--- ifpos line
+sr (TrueK : ts) i = sr (PT (TT) : ts) i
+sr (FalseK : ts) i = sr (PT (FF) : ts) i
+sr (YComb : ts) i = sr (PT Y : ts) i    -- fpc ?
+sr (SuccK : PT n : ts) i = sr (PT (S n) : ts) i
+-- rec line
+-- num line
+-- lte line
+sr (PT t3 : ElseK : PT t2 : ThenK : PT t1 : IfK : ts) i = sr (PT (If t1 t2 t3) : ts) i
+sr (PT t2 : Comma : PT t1 : PairK : ts) i = sr (PT (Pair t1 t2) : ts) i
+sr (PT t2 : Comma : PT t1 : FstK : ts) i = sr (PT (Fst (Pair t1 t2)) : ts) i -- might not work
+sr (PT t2 : Comma : PT t1 : SndK : ts) i = sr (PT (Snd (Pair t1 t2)) : ts) i -- might not work
+sr (PT t2 : AddOp : PT t1 : ts) i = sr(PT(Add t1 t2) : ts) i 
+sr (PT t2 : SubOp : PT t1 : ts) i = sr(PT(Sub t1 t2) : ts) i 
 sr (RPar : PT t : LPar : ts) i = sr (PT t : ts) i
--- abs line
--- app line
+sr (PT r : Dot : PT (Var x) : Backslash : ts) i     = sr (PT (Abs x r) : ts) i
+sr (PT t2 : PT t1 : ts) i   = sr (PT (App t1 t2) : ts) i
 sr m (i0:i) = sr (i0:m) i
 sr st [] = st
-
---ALL ELSE HAS NOT BEEN CHECKED
--- Part 2. Reduction
-
-allVars :: [Vars]
-allVars = ("" : allVars) >>= (\s -> (map (\x -> s ++ [x]) ['a'..'z']))
-
-freshVar :: [Vars] -> Vars
-freshVar vs = allVars !! (maximum (catMaybes (elemIndex x allVars | x <- xs)) + 1)
-    where xs = nub vs
-
-fv :: Terms -> [Vars]
-fv (Var x) = [x]
-fv (Abs x r) = filter (/= x) (fv r)
-fv (App r s) = nub $ fv s ++ fv r
-fv (Sub s t) = nub $ fv s ++ fv t
-fv (IfPos r s t) = nub $ fv r ++ fv s ++ fv t
-fv _ = []
-
--- Question 2.1
-subst :: (Vars,Terms) -> Terms -> Terms
-subst (x,t) (Var y) | x==y = t
-                    | otherwise = (Var y)
-subst (x,t) (Abs y r) | x == y = Abs y r
-                      | not (elem y (fv t)) = Abs y (subst (x,t) r)
-subst (x,t) (Abs y r)
-    let z = freshVar (x : y : fv t ++ fv r)
-        r' = subst (y,Var z) r
-    in Abs z (subst (x,t) r')
-
--- constant case when c is Const n or Y
--- ...
--- Question 2.2
-predstep :: Terms -> Terms
-predstep (App (Abs x t) s) = subst (x,s) t
-predstep (App (Const n) _) = Const n -- constant case
-predstep (App (IfPos (Const n) t1 t2) t) = if n > 0 then t1 else t2
-predstep (Sub (Const m) (Const n)) = Const (m - n)
-predstep (App Y t) = App t (App Y t)
-predstep (IfPos r s t) = IfPos (predstep r) (predstep s) (predstep t)
--- Congruence rules
-predstep (Abs x r) = Abs x (predstep r)
-predstep (App s t) = App (predstep s) (predstep t)
-predstep (Sub s t) = Sub (predstep s) (predstep t)
-predstep (IfPos r s t) = IfPos (predstep r) (predstep s) (predstep t)
--- Reflexivity for variables, constants, and Y (the leaves of syntax tree)
-predstep x = x
-
--- Question 2.3
-preds :: Terms -> Terms
-preds t = if t == t' then t else preds t' where t' = predstep t
-
--- Part 3. Typing
-
-type Constr = (Types,Types)
-type Context = [(Vars,Types)]
-
-ftv :: Types -> [TVars]
-ftv (TVar a) = [a]
-ftv (Fun t1 t2) = ftv t1 ++ ftv t2
-
-ftvc :: Context -> [TVars]
-ftvc gamma = map snd gamma >>= ftv
-
--- Question 3.1
-tsubst :: (TVars,Types) -> Types -> Types
-tsubst (a,t) (TVar b) | a == b = t
-                      | otherwise = TVar b
-tsubst (a,t) (Fun t1 t2) = Fun (tsubst (a,t) t1) (tsubst (a,t) t2)
-tsubst (a,t) Ints = Ints
-
-tsubstCon :: (TVars,Types) -> [Constr] -> [Constr]
-tsubstCon (a,t) [] = []
-tsubstCon (a,t) ((t1,t2):cs) = (tsubst (a,t) t1, tsubst (a,t) t2) : tsubstCon (a,t) cs
