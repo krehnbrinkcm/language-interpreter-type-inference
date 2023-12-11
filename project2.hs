@@ -18,7 +18,7 @@ data Terms = Var Vars | App Terms Terms | Abs Vars Terms
 
 
 data Token = VSym Vars | LPar | RPar | Dot | Backslash |
-        Err String | ZeroT | ST | RecT | CommaT | FstT | SndT | PT Terms
+        Err String | ZeroT | SuccT | RecT | CommaT | FstT | SndT | PT Terms
     deriving (Show)
 
 
@@ -29,7 +29,7 @@ lexer ('\\':s) = (Backslash : lexer s)
 lexer (',':s) = (CommaT : lexer s)
 lexer ('(':s) = (LPar : lexer s)
 lexer (')':s) = (RPar : lexer s)
-lexer ('S':s) = (ST : lexer s)
+lexer ('S':s) = (SuccT : lexer s)
 lexer s | isPrefixOf "zero" s  = ZeroT : lexer (drop 4 s)
 lexer s | isPrefixOf "fst" s  = FstT : lexer (drop 3 s)
 lexer s | isPrefixOf "snd" s  = SndT : lexer (drop 3 s)
@@ -57,7 +57,7 @@ sr (PT e2 : CommaT : PT e1 : s)                       q = sr (PT (Pair e1 e2) : 
 sr (PT e1 : FstT : s)                       q = sr (PT (Fst e1) : s) q
 sr (PT e1 : SndT : s)                       q = sr (PT (Snd e1) : s) q
 sr (PT e1 : Dot : PT (Var x) : Backslash : s)  q = sr (PT (Abs x e1)  : s) q
-sr (PT e1 : ST : s)               q = sr (PT (Succ e1) : s) q
+sr (PT e1 : SuccT : s)               q = sr (PT (Succ e1) : s) q
 sr (RPar : PT e1 : LPar : s)                     q = sr (PT e1 : s) q
 sr (Err e : ts) i = [Err e]
 sr st      (i:is) = sr (i:st) is
