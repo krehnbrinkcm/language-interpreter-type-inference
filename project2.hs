@@ -8,7 +8,7 @@ type Vars = String;
 type TVars = String;
 
 
-data Types = TVar TVars | Fun Types Types | Prod Types Types
+data Types = Natural | TVar TVars | Fun Types Types | Prod Types Types
 
 
 data Terms = Var Vars | App Terms Terms | Abs Vars Terms 
@@ -18,7 +18,7 @@ data Terms = Var Vars | App Terms Terms | Abs Vars Terms
 
 
 data Token = VSym Vars | LPar | RPar | Dot | Backslash |
-        Err String | ZeroK | SK | RecK | CommaK | FstK | SndK | PT Terms
+        Err String | ZeroT | ST | RecT | CommaT | FstT | SndT | PT Terms
     deriving (Show)
 
 
@@ -26,14 +26,14 @@ lexer :: String -> [Token]
 lexer "" = []
 lexer ('.':s) = (Dot : lexer s)
 lexer ('\\':s) = (Backslash : lexer s)
-lexer (',':s) = (CommaK : lexer s)
+lexer (',':s) = (CommaT : lexer s)
 lexer ('(':s) = (LPar : lexer s)
 lexer (')':s) = (RPar : lexer s)
-lexer ('S':s) = (SK : lexer s)
-lexer s | isPrefixOf "zero" s  = ZeroK : lexer (drop 4 s)
-lexer s | isPrefixOf "fst" s  = FstK : lexer (drop 3 s)
-lexer s | isPrefixOf "snd" s  = SndK : lexer (drop 3 s)
-lexer s | isPrefixOf "recursion" s  = ZeroK : lexer (drop 4 s)                  -- maybe change string representation
+lexer ('S':s) = (ST : lexer s)
+lexer s | isPrefixOf "zero" s  = ZeroT : lexer (drop 4 s)
+lexer s | isPrefixOf "fst" s  = FstT : lexer (drop 3 s)
+lexer s | isPrefixOf "snd" s  = SndT : lexer (drop 3 s)
+lexer s | isPrefixOf "recursion" s  = ZeroT : lexer (drop 4 s)                  -- maybe change string representation
 lexer (c:s) | isLower c = let (var,rst) = span isAlphaNum s
                             in (VSym (c:var) : lexer rst)
 lexer (c:s) | isSpace c = lexer s
@@ -50,14 +50,14 @@ parser ts = case sr [] ts of
 
 sr :: [Token] -> [Token] -> [Token]
 sr (VSym x : s)                              q = sr (PT (Var x)     : s) q
-sr (ZeroK : s)                              q = sr (PT (Zero)     : s) q
-sr (PT e3 : PT e2 : PT e1 : RecK : s) q = sr (PT (Rec e1 e2 e3) : s) q
+sr (ZeroT : s)                              q = sr (PT (Zero)     : s) q
+sr (PT e3 : PT e2 : PT e1 : RecT : s) q = sr (PT (Rec e1 e2 e3) : s) q
 sr (PT e2 : PT e1 : s)                       q = sr (PT (App e1 e2) : s) q
-sr (PT e2 : CommaK : PT e1 : s)                       q = sr (PT (Pair e1 e2) : s) q
-sr (PT e1 : FstK : s)                       q = sr (PT (Fst e1) : s) q
-sr (PT e1 : SndK : s)                       q = sr (PT (Snd e1) : s) q
+sr (PT e2 : CommaT : PT e1 : s)                       q = sr (PT (Pair e1 e2) : s) q
+sr (PT e1 : FstT : s)                       q = sr (PT (Fst e1) : s) q
+sr (PT e1 : SndT : s)                       q = sr (PT (Snd e1) : s) q
 sr (PT e1 : Dot : PT (Var x) : Backslash : s)  q = sr (PT (Abs x e1)  : s) q
-sr (PT e1 : SK : s)               q = sr (PT (Succ e1) : s) q
+sr (PT e1 : ST : s)               q = sr (PT (Succ e1) : s) q
 sr (RPar : PT e1 : LPar : s)                     q = sr (PT e1 : s) q
 sr (Err e : ts) i = [Err e]
 sr st      (i:is) = sr (i:st) is
