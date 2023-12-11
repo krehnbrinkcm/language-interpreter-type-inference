@@ -21,6 +21,7 @@ data Token = VSym Vars | LPar | RPar | Dot | Backslash |
         Err String | ZeroT | SuccT | RecT | CommaT | FstT | SndT | PT Terms
     deriving (Show)
 
+--lexer
 
 lexer :: String -> [Token]
 lexer "" = []
@@ -39,6 +40,7 @@ lexer (c:s) | isLower c = let (var,rst) = span isAlphaNum s
 lexer (c:s) | isSpace c = lexer s
 lexer (c:s) = (Err ("Invalid character " ++ [c]) : lexer s)                     -- could make lexical errors print better
 
+--parser
 
 parser :: [Token] -> Either Terms String
 parser ts = case sr [] ts of
@@ -63,12 +65,13 @@ sr (Err e : ts) i = [Err e]
 sr st      (i:is) = sr (i:st) is
 sr st          [] = st
 
+--subst
 
 subst :: (Vars,Terms) -> Terms -> Terms
-subst (v,t) (Succ e1) = Succ (subst (v,t) e1)
 subst (v,t) (Zero) = Zero
 subst (v,t) (Var x) = if x == v then t else (Var x)
 subst (v,t) (App e1 e2) = App (subst (v,t) e1) (subst (v,t) e2)
+subst (v,t) (Succ e1) = Succ (subst (v,t) e1)
 subst (v,t) (Pair e1 e2) = Pair (subst (v,t) e1) (subst (v,t) e2)
 subst (v,t) (Fst e1) = Fst (subst (v,t) e1)
 subst (v,t) (Snd e1) = Snd (subst (v,t) e1)
@@ -81,21 +84,18 @@ subst (x,s) t@(Abs y r)                                                         
           r' = subst (y,Var y') r
        in Abs y' (subst (x,s) r')
 
-
-allVars :: [String]
-allVars = "" : newVars
-  where newVars = allVars >>= (\var -> [ var ++ [l] | l <- ['a'..'z']])
-
-freshVar :: [String] -> String
-freshVar vs =
-  let inds = catMaybes (map (\x -> elemIndex x allVars) ("":vs))
-   in allVars !! (maximum inds + 1)
-
 fv :: Terms -> [Vars]
+fv (Zero) = []
 fv (Var x) = [x]
 fv (App s t) = nub $ fv s ++ fv t
 fv (Abs x t) = filter (/= x) (fv t)
+fv (Pair s t) = nub $ fv s ++ fv t
+fv (Rec t1 t2 t3) = nub $ fv t1 ++ fv t2 ++ fv t3
+fv (Succ t) = fv t
+fv (Fst t) = fv t
+fv (Snd t) = fv t
 
+--predStep
 
 predStep :: Terms -> Terms
 --root reduction steps
@@ -119,6 +119,17 @@ preds :: Terms -> Terms
 preds t = let t' = predStep t
            in if t == t' then t else preds t'
            
+
+--Typing
+
+allVars :: [String]
+allVars = "" : newVars
+  where newVars = allVars >>= (\var -> [ var ++ [l] | l <- ['a'..'z']])
+
+freshVar :: [String] -> String
+freshVar vs =
+  let inds = catMaybes (map (\x -> elemIndex x allVars) ("":vs))
+   in allVars !! (maximum inds + 1)
 
 type Constr = (Types,Types)
 type Context = [(Vars,Types)]
