@@ -159,7 +159,10 @@ ftvC [] = []
 ftvC ((x,a) : g) = ftv a ++ ftvC g
 
 
-genConstr :: Context -> Terms -> Types -> [Constr]                 -- need to implement rest of rules
+
+
+genConstr :: Context -> Terms -> Types -> [Constr]                -- need to implement rest of rules
+genConstr g (Zero) a = [] 
 genConstr g (Var x) a = case lookup x g of
                           Just b  -> [(a,b)]
                           Nothing -> error "Variable not found in context"
@@ -172,6 +175,29 @@ genConstr g (Abs x r) b =
   let a1 = freshVar (ftv b ++ ftvC g)
       a2 = freshVar (a1 : (ftv b ++ ftvC g))
    in (b , Fun (TVar a1) (TVar a2)) : genConstr ((x,TVar a1):g) (r) (TVar a2)
+genConstr g (Succ t) b = genConstr g t (Natural)
+genConstr g (Rec t1 t2 t3) b = 
+  let c1 = genConstr g t1 (b)
+      c2 = genConstr g t2 (Fun Natural (Fun (b) (b)))           -- correct order?
+      c3 = genConstr g t3 (Natural)
+  in c1 ++ c2 ++ c3
+genConstr g (Fst s) a = 
+  let b = freshVar (ftv a ++ ftvC g)
+      in genConstr g s (Prod (TVar b) (a))
+genConstr g (Snd s) b = 
+  let a = freshVar (ftv b ++ ftvC g)
+      in genConstr g s (Prod (TVar a) (b))
+genConstr g (Pair s t) b =
+  let a1 = freshVar (ftv b ++ ftvC g)
+      a2 = freshVar (a1 : (ftv b ++ ftvC g))
+      c1 = genConstr g s (TVar a1)
+      c2 = genConstr g t (TVar a2)
+   in (b , Prod (TVar a1) (TVar a2)) : (c1 ++ c2)
+
+
+
+  
+
 
 
 
