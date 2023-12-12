@@ -1,5 +1,6 @@
 --Project 
 
+import System.IO
 import Data.Char
 import Data.List
 import Data.Maybe
@@ -221,4 +222,36 @@ infer t =
 
 
 
+
+
+
+main :: IO ()
+main = do
+  putStrLn "Enter the file name:"
+  fileName <- getLine
+  fileContents <- readFile fileName
+
+  -- Parse the file contents into a list of (String, Terms) tuples
+  let functionList = parseFunctions fileContents
+
+  putStrLn "Functions loaded:"
+  print functionList
+
+  putStrLn "Enter an expression to evaluate:"
+  expression <- getLine
+
+  -- Parse the user input expression
+  let parsedExpression = case parser (lexer expression) of
+        Left (PT t) -> t
+        Right err -> error err
+
+  -- Substitute the loaded functions into the user input expression
+  let substitutedExpression = foldr (\(name, func) acc -> subst (name, func) acc) parsedExpression functionList
+
+  putStrLn "Substituted expression:"
+  print substitutedExpression
+
+  -- Evaluate the substituted expression
+  putStrLn "Result:"
+  print (preds substitutedExpression)
 
