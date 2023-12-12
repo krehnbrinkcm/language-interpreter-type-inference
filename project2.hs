@@ -194,9 +194,17 @@ genConstr g (Pair s t) b =
       c2 = genConstr g t (TVar a2)
    in (b , Prod (TVar a1) (TVar a2)) : (c1 ++ c2)
 
-
-
-  
+solve :: [Constr] -> [(TVars, Types)]
+solve [] = []
+solve ((TVar a, TVar b) : cs) | a == b = solve cs
+solve ((TVar a, t) : cs)
+  | a `elem` ftv t = error $ "Occurs Check. Circular type: " ++ " = " ++ show t
+solve ((TVar a, t) : cs) = (a, t) : solve (tsubstCon (a, t) cs)
+solve ((t, TVar a) : cs) = solve ((TVar a, t) : cs)
+solve ((Fun s1 s2, Fun t1 t2) : cs) = solve $ (s1, t1) : (s2, t2) : cs
+solve ((Natural, Natural) : cs) = solve cs
+solve ((s, t) : cs) = error $ "Type Error: " ++ show s ++ " /=" ++ show t
+-- Add for product i think, this is his solver for the most part from hw 9
 
 
 
