@@ -186,7 +186,7 @@ genConstr g (Abs x r) b =
 genConstr g (Succ t) b = genConstr g t (Natural)
 genConstr g (Rec t1 t2 t3) b = 
   let c1 = genConstr g t1 (b)
-      c2 = genConstr g t2 (Fun Natural (Fun (b) (b)))           -- correct order?
+      c2 = genConstr g t2 (Fun Natural (Fun (b) (b)))          
       c3 = genConstr g t3 (Natural)
   in c1 ++ c2 ++ c3
 genConstr g (Fst s) a = 
