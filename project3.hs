@@ -220,38 +220,61 @@ infer t =
    in substAll ts (TVar "a")
 
 
-
-
-
-
-
 main :: IO ()
 main = do
-  putStrLn "Enter the file name:"
+  putStrLn "Enter the name of the input file:"
   fileName <- getLine
-  fileContents <- readFile fileName
-
-  -- Parse the file contents into a list of (String, Terms) tuples
-  let functionList = parseFunctions fileContents
-
-  putStrLn "Functions loaded:"
+  contents <- readFile fileName
+  let functionList = parseFileContents contents
+  putStrLn "Functions loaded successfully!"
+  putStrLn "Parsed functions:"
   print functionList
+  loop functionList
 
-  putStrLn "Enter an expression to evaluate:"
+loop :: [(FName, Terms)] -> IO ()
+loop functionList = do
+
+  putStrLn "Enter an expression to evaluate (or type 'exit' to quit):"
   expression <- getLine
+  if expression == "exit"
+    then putStrLn "Exiting program."
+    else do
+      let parsedExpression = parseExpression expression
+          substitutedExpression = substituteFunctions functionList parsedExpression
+          inferredType = infer substitutedExpression
+          result = preds substitutedExpression
+      putStrLn $ "Inferred type: " ++ show inferredType
+      putStrLn $ "Result: " ++ show result
+      loop functionList
 
-  -- Parse the user input expression
-  let parsedExpression = case parser (lexer expression) of
-        Left (PT t) -> t
-        Right err -> error err
 
-  -- Substitute the loaded functions into the user input expression
-  let substitutedExpression = foldr (\(name, func) acc -> subst (name, func) acc) parsedExpression functionList
+parseFileContents :: String -> [(FName, Terms)]
+parseFileContents = map parseLine . lines
+  where
+    parseLine :: String -> (FName, Terms)
+    parseLine line =
+      case words line of
+        (name: "=" : rest) ->
+          let tokens = lexer $ unwords rest
+          in case parser tokens of
+               Left expr -> (trim name, expr)
+               Right err -> error $ "Expression parsing error: " ++ err ++ "\nLexer output: " ++ show tokens
+        _ -> ([],Zero)
 
-  putStrLn "Substituted expression:"
-  print substitutedExpression
 
-  -- Evaluate the substituted expression
-  putStrLn "Result:"
-  print (preds substitutedExpression)
 
+
+trim :: String -> String
+trim = dropWhile isSpace . reverse . dropWhile isSpace . reverse
+
+
+substituteFunctions :: [(FName, Terms)] -> Terms -> Terms
+substituteFunctions [] expr = expr
+substituteFunctions ((name, body):fs) expr =
+  substituteFunctions fs $ subst (name, body) expr
+
+
+parseExpression :: String -> Terms
+parseExpression input = case parser $ lexer input of
+  Left expr -> expr
+  Right err -> error $ "Expression parsing error: " ++ err

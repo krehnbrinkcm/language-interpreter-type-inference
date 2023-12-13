@@ -1,8 +1,7 @@
-I = \\x.x
-K = \\x.\\y.x
-twice = \\n.recursion ((0) , (\\x.\\y.S(Sy)) , (n))
-
-add = \\x.\\y.recursion(y, \\n.\\z.S(z), x)
-mul = \\x.\\y.recursion(0, \\n.\\z.(add x z), x)
-fibstep = \\n. (snd n, add (fst n) (snd n))
-
+i = \x.x
+k = \x.\y.x
+twice = \n.recursion ((0) , (\x.\y.S(Sy)) , (n))
+add = \x.\y.recursion(y, \n.\z.S(z), x)
+mul = \x.\y.recursion(0, \n.\z.(add x z), x)
+fibstep = \n. (snd n, add (fst n) (snd n))
+fib = fst (recursion( (0,S0) , (\x.\y.fibstep y) , n) )
