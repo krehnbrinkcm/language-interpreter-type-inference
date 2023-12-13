@@ -68,6 +68,8 @@ sr (Err e : ts) i = [Err e]
 sr st      (i:is) = sr (i:st) is
 sr st          [] = st
 
+
+
 --Substitute
 
 subst :: (Vars,Terms) -> Terms -> Terms
@@ -227,22 +229,24 @@ main = do
   contents <- readFile fileName
   let functionList = parseFileContents contents
   putStrLn "Functions loaded successfully!"
+  putStrLn "\n"
   putStrLn "Parsed functions:"
   print functionList
   loop functionList
 
 loop :: [(FName, Terms)] -> IO ()
 loop functionList = do
-
+  putStrLn "\n"
   putStrLn "Enter an expression to evaluate (or type 'exit' to quit):"
   expression <- getLine
   if expression == "exit"
     then putStrLn "Exiting program."
     else do
-      let parsedExpression = parseExpression expression
-          substitutedExpression = substituteFunctions functionList parsedExpression
+      let substitutedExpression = substituteFunctions functionList (parseExpression expression)
           inferredType = infer substitutedExpression
           result = preds substitutedExpression
+      putStrLn "\n"
+      putStrLn $ "Substituted Expression: " ++ show substitutedExpression
       putStrLn $ "Inferred type: " ++ show inferredType
       putStrLn $ "Result: " ++ show result
       loop functionList
@@ -265,16 +269,18 @@ parseFileContents = map parseLine . lines
 
 
 trim :: String -> String
-trim = dropWhile isSpace . reverse . dropWhile isSpace . reverse
+trim = dropWhile isSpace
 
 
 substituteFunctions :: [(FName, Terms)] -> Terms -> Terms
 substituteFunctions [] expr = expr
 substituteFunctions ((name, body):fs) expr =
-  substituteFunctions fs $ subst (name, body) expr
+  substituteFunctions fs $ subst (name, body) (substituteFunctions fs expr)
 
 
 parseExpression :: String -> Terms
 parseExpression input = case parser $ lexer input of
   Left expr -> expr
   Right err -> error $ "Expression parsing error: " ++ err
+
+
